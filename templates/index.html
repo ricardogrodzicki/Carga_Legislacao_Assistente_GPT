@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navegador de Regulamentação do Setor Elétrico</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin: 20px auto;
+            padding: 30px;
+            max-width: 1400px;
+        }
+        
+        .theme-cloud {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+            min-height: 500px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .theme-bubble {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.2));
+        }
+        
+        .theme-bubble:hover {
+            transform: scale(1.1);
+            filter: drop-shadow(4px 4px 8px rgba(0,0,0,0.3));
+        }
+        
+        .theme-text {
+            font-weight: 600;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+            font-size: 12px;
+        }
+        
+        .breadcrumb-custom {
+            background: rgba(108, 117, 125, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stats-card {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .upload-area {
+            border: 3px dashed #6c757d;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-area:hover {
+            background: #e9ecef;
+            border-color: #495057;
+        }
+        
+        .loading-spinner {
+            display: none;
+        }
+        
+        .theme-details {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .keyword-tag {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            margin: 3px;
+            font-size: 12px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="main-container">
+            <div class="row">
+                <div class="col-12 text-center mb-4">
+                    <h1 class="display-4 text-primary">
+                        <i class="bi bi-lightning-charge"></i>
+                        Navegador de Regulamentação Elétrica
+                    </h1>
+                    <p class="lead text-muted">
+                        Explore temas de regulamentação do setor elétrico brasileiro através de nuvens interativas
+                    </p>
+                </div>
+            </div>
+            
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <div class="stats-card">
+                        <h5><i class="bi bi-file-text"></i> Estatísticas</h5>
+                        <div class="row">
+                            <div class="col-4">
+                                <div class="h3 mb-0" id="total-docs">-</div>
+                                <small>Documentos</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="h3 mb-0" id="total-themes">-</div>
+                                <small>Temas</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="h3 mb-0" id="current-level">1</div>
+                                <small>Nível</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-outline-primary w-100 h-100" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                        <i class="bi bi-cloud-upload"></i><br>
+                        Carregar Documentos
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Breadcrumb Navigation -->
+            <nav class="breadcrumb-custom" id="breadcrumb-nav" style="display: none;">
+                <ol class="breadcrumb mb-0" id="breadcrumb-list">
+                </ol>
+            </nav>
+            
+            <!-- Theme Cloud Visualization -->
+            <div class="theme-cloud">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3 id="cloud-title">Temas Principais</h3>
+                    <div class="loading-spinner">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                    </div>
+                </div>
+                <svg id="theme-svg" width="100%" height="450"></svg>
+            </div>
+            
+            <!-- Theme Details -->
+            <div class="theme-details" id="theme-details" style="display: none;">
+                <h4 id="detail-title">Detalhes do Tema</h4>
+                <div id="detail-content"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Upload Modal -->
+    <div class="modal fade" id="uploadModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Carregar Documentos Personalizados</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="upload-area" id="upload-area">
+                        <i class="bi bi-cloud-upload display-1 text-muted"></i>
+                        <h5>Adicione seus documentos de regulamentação</h5>
+                        <p class="text-muted">Cole o texto ou arraste arquivos aqui</p>
+                        <textarea class="form-control mt-3" id="document-text" rows="10" 
+                                  placeholder="Cole o texto dos documentos aqui, um por linha ou separados por linha em branco..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="process-documents">
+                        <i class="bi bi-gear"></i> Processar Documentos
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        class ThemeNavigator {
+            constructor() {
+                this.currentThemes = [];
+                this.navigationStack = [];
+                this.svg = d3.select("#theme-svg");
+                this.width = 0;
+                this.height = 450;
+                
+                this.init();
+            }
+            
+            init() {
+                this.setupEventListeners();
+                this.loadInitialThemes();
+                this.resizeSVG();
+                
+                window.addEventListener('resize', () => this.resizeSVG());
+            }
+            
+            setupEventListeners() {
+                document.getElementById('process-documents').addEventListener('click', () => {
+                    this.processCustomDocuments();
+                });
+            }
+            
+            resizeSVG() {
+                const container = document.querySelector('.theme-cloud');
+                this.width = container.clientWidth - 40;
+                this.svg.attr("width", this.width);
+            }
+            
+            async loadInitialThemes() {
+                this.showLoading(true);
+                try {
+                    const response = await fetch('/api/themes');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.currentThemes = data.themes;
+                        this.updateStats(data.total_documents, data.themes.length);
+                        this.renderThemeCloud();
+                    } else {
+                        this.showError('Erro ao carregar temas: ' + data.error);
+                    }
+                } catch (error) {
+                    this.showError('Erro de conexão: ' + error.message);
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+            
+            async processCustomDocuments() {
+                const text = document.getElementById('document-text').value.trim();
+                if (!text) {
+                    alert('Por favor, adicione algum texto para processar.');
+                    return;
+                }
+                
+                const documents = text.split('\n').filter(line => line.trim().length > 10);
+                if (documents.length === 0) {
+                    alert('Por favor, adicione documentos válidos (pelo menos 10 caracteres por linha).');
+                    return;
+                }
+                
+                this.showLoading(true);
+                try {
+                    const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({documents: documents})
+                    });
+                    
+                    const data = await response.json();
+                    if (data.success) {
+                        this.currentThemes = data.themes;
+                        this.navigationStack = [];
+                        this.updateStats(data.total_documents, data.themes.length);
+                        this.updateBreadcrumb();
+                        this.renderThemeCloud();
+                        
+                        // Close modal
+                        bootstrap.Modal.getInstance(document.getElementById('uploadModal')).hide();
+                        document.getElementById('document-text').value = '';
+                    } else {
+                        this.showError('Erro ao processar documentos: ' + data.error);
+                    }
+                } catch (error) {
+                    this.showError('Erro de conexão: ' + error.message);
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+            
+            renderThemeCloud() {
+                this.svg.selectAll("*").remove();
+                
+                if (!this.currentThemes || this.currentThemes.length === 0) {
+                    this.svg.append("text")
+                        .attr("x", this.width / 2)
+                        .attr("y", this.height / 2)
+                        .attr("text-anchor", "middle")
+                        .attr("class", "text-muted")
+                        .text("Nenhum tema encontrado");
+                    return;
+                }
+                
+                // Create simulation for bubble layout
+                const simulation = d3.forceSimulation(this.currentThemes)
+                    .force("center", d3.forceCenter(this.width / 2, this.height / 2))
+                    .force("collision", d3.forceCollide(d => this.getRadius(d.size) + 5))
+                    .force("x", d3.forceX(this.width / 2).strength(0.05))
+                    .force("y", d3.forceY(this.height / 2).strength(0.05));
+                
+                // Create color scale
+                const colorScale = d3.scaleOrdinal(d3.schemeSet3);
+                
+                // Create bubble groups
+                const bubbleGroups = this.svg.selectAll(".bubble-group")
+                    .data(this.currentThemes)
+                    .enter()
+                    .append("g")
+                    .attr("class", "bubble-group");
+                
+                // Add circles
+                const circles = bubbleGroups.append("circle")
+                    .attr("class", "theme-bubble")
+                    .attr("r", d => this.getRadius(d.size))
+                    .attr("fill", (d, i) => colorScale(i))
+                    .attr("stroke", "#fff")
+                    .attr("stroke-width", 2)
+                    .on("click", (event, d) => this.onThemeClick(d));
+                
+                // Add text labels
+                const labels = bubbleGroups.append("text")
+                    .attr("class", "theme-text")
+                    .text(d => this.truncateText(d.theme, this.getRadius(d.size)))
+                    .attr("fill", "#333")
+                    .style("font-size", d => Math.min(this.getRadius(d.size) / 4, 14) + "px");
+                
+                // Add size labels
+                bubbleGroups.append("text")
+                    .attr("class", "theme-text")
+                    .attr("dy", "1.2em")
+                    .text(d => `${d.size} docs`)
+                    .attr("fill", "#666")
+                    .style("font-size", d => Math.min(this.getRadius(d.size) / 6, 10) + "px");
+                
+                // Update positions on simulation tick
+                simulation.on("tick", () => {
+                    bubbleGroups.attr("transform", d => `translate(${d.x}, ${d.y})`);
+                });
+            }
+            
+            getRadius(size) {
+                const minRadius = 30;
+                const maxRadius = 80;
+                const maxSize = Math.max(...this.currentThemes.map(t => t.size));
+                return minRadius + (size / maxSize) * (maxRadius - minRadius);
+            }
+            
+            truncateText(text, radius) {
+                const maxLength = Math.floor(radius / 4);
+                return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
+            }
+            
+            async onThemeClick(theme) {
+                // Add current state to navigation stack
+                this.navigationStack.push({
+                    themes: [...this.currentThemes],
+                    title: document.getElementById('cloud-title').textContent
+                });
+                
+                this.showLoading(true);
+                try {
+                    const response = await fetch(`/api/theme/${encodeURIComponent(theme.theme)}`);
+                    const data = await response.json();
+                    
+                    if (data.success && data.sub_themes && data.sub_themes.length > 1) {
+                        this.currentThemes = data.sub_themes;
+                        this.renderThemeCloud();
+                        document.getElementById('cloud-title').textContent = `${theme.theme} - Subtemas`;
+                        this.updateBreadcrumb();
+                        this.showThemeDetails(data.theme);
+                    } else {
+                        this.showThemeDetails(theme);
+                    }
+                    
+                    document.getElementById('current-level').textContent = this.navigationStack.length + 1;
+                } catch (error) {
+                    this.showError('Erro ao carregar detalhes: ' + error.message);
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+            
+            showThemeDetails(theme) {
+                const detailsDiv = document.getElementById('theme-details');
+                const titleDiv = document.getElementById('detail-title');
+                const contentDiv = document.getElementById('detail-content');
+                
+                titleDiv.textContent = theme.theme;
+                
+                let content = `
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Documentos:</strong> ${theme.size || theme.documents?.length || 0}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Palavras-chave:</strong>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                `;
+                
+                if (theme.keywords) {
+                    theme.keywords.slice(0, 10).forEach(keyword => {
+                        content += `<span class="keyword-tag">${keyword}</span>`;
+                    });
+                }
+                
+                content += `</div>`;
+                
+                if (theme.documents && theme.documents.length > 0) {
+                    content += `
+                        <h6>Exemplos de Documentos:</h6>
+                        <ul class="list-unstyled">
+                    `;
+                    theme.documents.slice(0, 3).forEach(doc => {
+                        const preview = doc.length > 100 ? doc.substring(0, 100) + "..." : doc;
+                        content += `<li class="mb-2"><small class="text-muted">${preview}</small></li>`;
+                    });
+                    content += `</ul>`;
+                }
+                
+                contentDiv.innerHTML = content;
+                detailsDiv.style.display = 'block';
+            }
+            
+            updateBreadcrumb() {
+                const nav = document.getElementById('breadcrumb-nav');
+                const list = document.getElementById('breadcrumb-list');
+                
+                list.innerHTML = '';
+                
+                // Home breadcrumb
+                const homeItem = document.createElement('li');
+                homeItem.className = 'breadcrumb-item';
+                homeItem.innerHTML = '<a href="#" onclick="navigator.goHome()">Início</a>';
+                list.appendChild(homeItem);
+                
+                // Navigation stack breadcrumbs
+                this.navigationStack.forEach((item, index) => {
+                    const breadcrumbItem = document.createElement('li');
+                    breadcrumbItem.className = 'breadcrumb-item';
+                    breadcrumbItem.innerHTML = `<a href="#" onclick="navigator.goBack(${index + 1})">${item.title}</a>`;
+                    list.appendChild(breadcrumbItem);
+                });
+                
+                // Current level
+                if (this.navigationStack.length > 0) {
+                    const currentItem = document.createElement('li');
+                    currentItem.className = 'breadcrumb-item active';
+                    currentItem.textContent = document.getElementById('cloud-title').textContent;
+                    list.appendChild(currentItem);
+                }
+                
+                nav.style.display = this.navigationStack.length > 0 ? 'block' : 'none';
+            }
+            
+            goHome() {
+                this.navigationStack = [];
+                this.loadInitialThemes();
+                document.getElementById('cloud-title').textContent = 'Temas Principais';
+                document.getElementById('current-level').textContent = '1';
+                document.getElementById('theme-details').style.display = 'none';
+                this.updateBreadcrumb();
+            }
+            
+            goBack(level) {
+                if (level <= this.navigationStack.length) {
+                    const targetState = this.navigationStack[level - 1];
+                    this.navigationStack = this.navigationStack.slice(0, level - 1);
+                    this.currentThemes = targetState.themes;
+                    this.renderThemeCloud();
+                    document.getElementById('cloud-title').textContent = targetState.title;
+                    document.getElementById('current-level').textContent = level;
+                    document.getElementById('theme-details').style.display = 'none';
+                    this.updateBreadcrumb();
+                }
+            }
+            
+            updateStats(totalDocs, totalThemes) {
+                document.getElementById('total-docs').textContent = totalDocs;
+                document.getElementById('total-themes').textContent = totalThemes;
+            }
+            
+            showLoading(show) {
+                const spinner = document.querySelector('.loading-spinner');
+                spinner.style.display = show ? 'block' : 'none';
+            }
+            
+            showError(message) {
+                alert(message);
+                console.error(message);
+            }
+        }
+        
+        // Initialize the application
+        let navigator;
+        document.addEventListener('DOMContentLoaded', () => {
+            navigator = new ThemeNavigator();
+        });
+    </script>
+</body>
+</html>
