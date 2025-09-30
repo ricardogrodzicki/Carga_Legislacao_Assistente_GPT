@@ -8,24 +8,36 @@ Uma ferramenta interativa para exploração de temas em regulamentações do set
 - 🎯 **Navegação Hierárquica**: Permite aprofundamento progressivo nos temas
 - ☁️ **Visualização Interativa**: Interface de nuvem de temas com D3.js
 - 📤 **Upload de Documentos**: Suporte para análise de documentos personalizados
+- 🤖 **Integração OpenAI**: Busca dinâmica de documentos via Vector Store da OpenAI
+- 🔄 **Dados Sempre Atualizados**: Temas baseados na base do assistente OpenAI
 - 🇧🇷 **Otimizado para Português**: Processamento específico para regulamentação brasileira
 
 ## Instalação e Uso
 
 ### Opção 1: Servidor Simples (Recomendado)
 
-Usando apenas bibliotecas nativas do Python:
+Usando apenas bibliotecas nativas do Python ou com integração OpenAI:
 
 ```bash
 # Clone o repositório
 git clone https://github.com/ricardogrodzicki/Carga_Legislacao_Assistente_GPT.git
 cd Carga_Legislacao_Assistente_GPT
 
-# Execute o servidor simples
+# Para usar com OpenAI Vector Store (opcional):
+# 1. Copie o arquivo de exemplo
+cp .env.example .env
+
+# 2. Edite .env e adicione suas credenciais OpenAI
+# 3. Instale as dependências
+pip install openai python-dotenv
+
+# Execute o servidor simples (funciona com ou sem OpenAI)
 python3 simple_server.py
 ```
 
 Acesse http://localhost:8000 no seu navegador.
+
+**Nota**: O servidor funciona sem configuração adicional usando dados de exemplo. Configure o `.env` para usar dados dinâmicos do Vector Store da OpenAI.
 
 ### Opção 2: Servidor Flask (Avançado)
 
