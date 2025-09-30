@@ -7,9 +7,38 @@ O Navegador de Regulamentação Elétrica é uma ferramenta interativa que permi
 ## Iniciando a Aplicação
 
 ### Opção 1: Servidor Simples (Recomendado)
+
+#### Com OpenAI Vector Store (Dados Atualizados)
+
+Se você tem acesso ao Vector Store da OpenAI com regulamentações do setor elétrico:
+
+```bash
+# 1. Copie o arquivo de exemplo de variáveis de ambiente
+cp .env.example .env
+
+# 2. Edite .env e adicione suas credenciais
+# OPENAI_API_KEY=sua_chave_aqui
+# VECTOR_STORE_ID=seu_vector_store_id_aqui
+
+# 3. Instale as dependências (se ainda não instalou)
+pip install openai python-dotenv
+
+# 4. Inicie o servidor
+python3 simple_server.py
+```
+
+O servidor buscará automaticamente os documentos mais relevantes sobre "energia elétrica" do Vector Store da OpenAI.
+
+#### Sem Vector Store (Dados de Exemplo)
+
+Para usar apenas dados de exemplo locais:
+
 ```bash
 python3 simple_server.py
 ```
+
+O servidor funcionará normalmente com os dados de exemplo integrados, sem necessidade de configuração adicional.
+
 Acesse: http://localhost:8000
 
 ### Opção 2: Servidor Flask (se dependências instaladas)
@@ -42,6 +71,25 @@ Acesse: http://localhost:5000
 - **Contagem**: Número de documentos por tema
 
 ## Funcionalidades
+
+### Integração com OpenAI Vector Store
+
+A aplicação agora suporta integração com o Vector Store da OpenAI para buscar documentos dinâmicos e sempre atualizados:
+
+- **Busca Automática**: Na inicialização, busca documentos sobre "energia elétrica"
+- **Dados Atualizados**: Apresenta temas baseados na base de dados do assistente OpenAI
+- **Fallback Inteligente**: Se o Vector Store não estiver configurado, usa dados de exemplo
+- **Status Transparente**: A API indica se está usando dados do Vector Store ou dados de exemplo
+
+#### Configuração do Vector Store
+
+1. Obtenha sua chave de API da OpenAI em https://platform.openai.com
+2. Crie ou identifique seu Vector Store ID
+3. Configure as variáveis de ambiente no arquivo `.env`:
+   ```
+   OPENAI_API_KEY=sua_chave_aqui
+   VECTOR_STORE_ID=seu_vector_store_id_aqui
+   ```
 
 ### Exploração de Temas
 1. **Visualização Inicial**: A página mostra os temas principais extraídos dos dados

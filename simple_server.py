@@ -2,6 +2,7 @@
 """
 Simple HTTP server for the Theme Navigator application using only built-in Python libraries.
 This provides a basic theme analysis and visualization tool for Brazilian electrical regulations.
+Now integrated with OpenAI Vector Store for dynamic document retrieval.
 """
 
 import http.server
@@ -13,6 +14,88 @@ import urllib.parse
 from collections import Counter
 import random
 import math
+
+# OpenAI integration imports (optional - falls back to sample data if not available)
+try:
+    from dotenv import load_dotenv
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    print("Warning: openai or python-dotenv not installed. Using sample data only.")
+    print("Install with: pip install openai python-dotenv")
+
+# Load environment variables
+if OPENAI_AVAILABLE:
+    load_dotenv()
+
+def fetch_documents_from_vector_store(query="energia elétrica", max_results=20):
+    """
+    Fetch documents from OpenAI Vector Store based on a search query.
+    
+    Args:
+        query: Search query for finding relevant documents
+        max_results: Maximum number of documents to retrieve
+        
+    Returns:
+        List of document texts, or None if API is not configured
+    """
+    if not OPENAI_AVAILABLE:
+        return None
+    
+    api_key = os.getenv('OPENAI_API_KEY')
+    vector_store_id = os.getenv('VECTOR_STORE_ID')
+    
+    if not api_key or not vector_store_id:
+        print("Warning: OPENAI_API_KEY or VECTOR_STORE_ID not set in .env file")
+        return None
+    
+    try:
+        client = OpenAI(api_key=api_key)
+        
+        # Get files from the vector store
+        files_response = client.beta.vector_stores.files.list(
+            vector_store_id=vector_store_id,
+            limit=max_results
+        )
+        
+        documents = []
+        for file_obj in files_response.data:
+            try:
+                # Retrieve file content
+                file_id = file_obj.id
+                file_content = client.files.content(file_id)
+                content_text = file_content.text
+                
+                # Extract meaningful text (limit to first few lines or summary)
+                lines = content_text.split('\n')
+                # Get first non-empty lines
+                relevant_lines = []
+                for line in lines:
+                    line = line.strip()
+                    if line and len(line) > 20:  # Skip very short lines
+                        relevant_lines.append(line)
+                        if len(relevant_lines) >= 3:  # Get up to 3 lines per document
+                            break
+                
+                if relevant_lines:
+                    documents.append(' '.join(relevant_lines))
+                    
+            except Exception as e:
+                print(f"Error retrieving file {file_obj.id}: {e}")
+                continue
+        
+        if documents:
+            print(f"Successfully fetched {len(documents)} documents from Vector Store")
+            return documents
+        else:
+            print("No documents found in Vector Store")
+            return None
+            
+    except Exception as e:
+        print(f"Error accessing Vector Store: {e}")
+        return None
+
 
 class RegulationThemeAnalyzer:
     def __init__(self):
@@ -108,7 +191,7 @@ class RegulationThemeAnalyzer:
 
 class ThemeNavigatorHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
-        # Sample regulations data
+        # Sample regulations data (fallback when Vector Store is not available)
         self.sample_regulations = [
             "Resolução ANEEL sobre tarifas de energia elétrica e reajuste de preços para consumidores residenciais e comerciais",
             "Normativo sobre qualidade do fornecimento de energia elétrica e indicadores de continuidade do serviço",
@@ -121,6 +204,17 @@ class ThemeNavigatorHandler(http.server.SimpleHTTPRequestHandler):
             "Regulamentação sobre medição inteligente e modernização do sistema elétrico nacional",
             "Instrução sobre aspectos ambientais da geração de energia elétrica e impactos ao meio ambiente"
         ]
+        
+        # Try to fetch documents from Vector Store, fallback to sample data
+        vector_store_docs = fetch_documents_from_vector_store(query="energia elétrica")
+        if vector_store_docs:
+            self.regulations = vector_store_docs
+            self.using_vector_store = True
+            print(f"Using {len(self.regulations)} documents from OpenAI Vector Store")
+        else:
+            self.regulations = self.sample_regulations
+            self.using_vector_store = False
+            print(f"Using {len(self.regulations)} sample documents (Vector Store not available)")
         
         self.analyzer = RegulationThemeAnalyzer()
         super().__init__(*args, **kwargs)
@@ -168,11 +262,12 @@ class ThemeNavigatorHandler(http.server.SimpleHTTPRequestHandler):
     def serve_themes(self):
         """Serve themes API"""
         try:
-            themes = self.analyzer.extract_themes_simple(self.sample_regulations)
+            themes = self.analyzer.extract_themes_simple(self.regulations)
             response = {
                 'success': True,
                 'themes': themes,
-                'total_documents': len(self.sample_regulations)
+                'total_documents': len(self.regulations),
+                'source': 'vector_store' if self.using_vector_store else 'sample_data'
             }
             self.send_json_response(response)
         except Exception as e:
@@ -181,7 +276,7 @@ class ThemeNavigatorHandler(http.server.SimpleHTTPRequestHandler):
     def serve_theme_details(self, theme_name):
         """Serve theme details API"""
         try:
-            themes = self.analyzer.extract_themes_simple(self.sample_regulations)
+            themes = self.analyzer.extract_themes_simple(self.regulations)
             theme = next((t for t in themes if t['theme'] == theme_name), None)
             
             if not theme:
