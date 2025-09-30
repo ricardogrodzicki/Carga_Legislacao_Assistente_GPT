@@ -21,7 +21,7 @@ wheels/
 *.egg
 MANIFEST
 
-# Virtual environments
+# Virtual environments and environment variables
 .env
 .venv
 env/
@@ -29,9 +29,6 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-
-# Environment variables (keep .env.example)
-.env
 
 # IDE
 .vscode/

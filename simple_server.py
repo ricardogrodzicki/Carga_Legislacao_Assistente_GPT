@@ -53,12 +53,6 @@ def fetch_documents_from_vector_store(query="energia elétrica", max_results=20)
     try:
         client = OpenAI(api_key=api_key)
         
-        # Search the vector store for relevant documents
-        # Using file search with the vector store
-        response = client.beta.vector_stores.file_batches.list(
-            vector_store_id=vector_store_id
-        )
-        
         # Get files from the vector store
         files_response = client.beta.vector_stores.files.list(
             vector_store_id=vector_store_id,
@@ -75,7 +69,7 @@ def fetch_documents_from_vector_store(query="energia elétrica", max_results=20)
                 
                 # Extract meaningful text (limit to first few lines or summary)
                 lines = content_text.split('\n')
-                # Get first non-empty lines that contain the query terms
+                # Get first non-empty lines
                 relevant_lines = []
                 for line in lines:
                     line = line.strip()
