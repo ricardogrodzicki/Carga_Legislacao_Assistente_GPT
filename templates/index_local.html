@@ -242,6 +242,69 @@
             opacity: 0.9;
         }
         
+        .processing-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            z-index: 10;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        
+        .processing-overlay.active {
+            display: flex;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4a90e2;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .processing-message {
+            text-align: center;
+            color: #333;
+        }
+        
+        .processing-message h4 {
+            margin-bottom: 10px;
+            color: #4a90e2;
+        }
+        
+        .processing-message p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .success-message {
+            display: none;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .success-message.active {
+            display: block;
+        }
+        
         @media (max-width: 768px) {
             .stats-section {
                 flex-direction: column;
@@ -310,10 +373,13 @@
     
     <!-- Upload Modal -->
     <div class="modal" id="uploadModal">
-        <div class="modal-content">
+        <div class="modal-content" style="position: relative;">
             <div class="modal-header">
                 <h3>Carregar Documentos Personalizados</h3>
                 <span class="close" onclick="closeUploadModal()">&times;</span>
+            </div>
+            <div id="success-notification" class="success-message">
+                ✓ Documentos processados com sucesso! Os novos temas foram carregados.
             </div>
             <div style="text-align: center; margin-bottom: 20px;">
                 <div style="font-size: 48px; color: #ccc;">☁️</div>
@@ -325,6 +391,16 @@
             <div style="text-align: right; margin-top: 20px;">
                 <button class="btn btn-secondary" onclick="closeUploadModal()">Cancelar</button>
                 <button class="btn btn-primary" onclick="processDocuments()">⚙️ Processar Documentos</button>
+            </div>
+            
+            <!-- Processing Overlay -->
+            <div class="processing-overlay" id="processing-overlay">
+                <div class="spinner"></div>
+                <div class="processing-message">
+                    <h4>⚙️ Processando seus documentos...</h4>
+                    <p>Analisando o conteúdo e identificando temas</p>
+                    <p style="margin-top: 10px; font-size: 0.85rem;">Isso pode levar alguns segundos</p>
+                </div>
             </div>
         </div>
     </div>
@@ -512,6 +588,12 @@
             
             async processCustomDocuments(documents) {
                 this.showLoading(true);
+                // Show processing overlay in modal
+                const processingOverlay = document.getElementById('processing-overlay');
+                if (processingOverlay) {
+                    processingOverlay.classList.add('active');
+                }
+                
                 try {
                     const response = await fetch('/api/upload', {
                         method: 'POST',
@@ -528,6 +610,16 @@
                         this.renderThemeGrid();
                         document.getElementById('cloud-title').textContent = 'Temas Principais';
                         document.getElementById('current-level').textContent = '1';
+                        
+                        // Show success message
+                        const successMsg = document.getElementById('success-notification');
+                        if (successMsg) {
+                            successMsg.classList.add('active');
+                            setTimeout(() => {
+                                successMsg.classList.remove('active');
+                            }, 3000);
+                        }
+                        
                         return true;
                     } else {
                         this.showError('Erro ao processar documentos: ' + data.error);
@@ -538,6 +630,10 @@
                     return false;
                 } finally {
                     this.showLoading(false);
+                    // Hide processing overlay
+                    if (processingOverlay) {
+                        processingOverlay.classList.remove('active');
+                    }
                 }
             }
             
@@ -565,6 +661,11 @@
         function closeUploadModal() {
             document.getElementById('uploadModal').style.display = 'none';
             document.getElementById('document-text').value = '';
+            // Hide success message when closing
+            const successMsg = document.getElementById('success-notification');
+            if (successMsg) {
+                successMsg.classList.remove('active');
+            }
         }
         
         async function processDocuments() {
