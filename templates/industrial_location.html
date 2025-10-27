@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análise de Localização - Plantas Industriais Eletrointensivas</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/recharts@2.5.0/dist/Recharts.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .input-field {
+            transition: all 0.3s ease;
+        }
+        .input-field:focus {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        .rank-badge {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 250px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -125px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+        const {
+            BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip: RechartsTooltip,
+            Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis,
+            PolarRadiusAxis, Radar, ScatterChart, Scatter, Cell
+        } = Recharts;
+
+        // Base de dados das regiões brasileiras com valores realistas (2024-2025)
+        const REGIONAL_DATA = {
+            'Sul (RS, SC, PR)': {
+                tusd: 85,
+                tust: 45,
+                energyPrice: 220,
+                connectionCost: 450000,
+                connectionAvailability: 'Alta',
+                connectionTime: 18,
+                taxIncentive: 12,
+                landCost: 'Médio',
+                renewableEnergy: 65,
+                congestionRisk: 'Baixo',
+                infrastructure: 'Boa',
+                color: '#667eea'
+            },
+            'Sudeste (SP, RJ, MG, ES)': {
+                tusd: 120,
+                tust: 65,
+                energyPrice: 260,
+                connectionCost: 650000,
+                connectionAvailability: 'Média',
+                connectionTime: 24,
+                taxIncentive: 5,
+                landCost: 'Alto',
+                renewableEnergy: 45,
+                congestionRisk: 'Alto',
+                infrastructure: 'Boa',
+                color: '#f56565'
+            },
+            'Nordeste (BA, CE, PE, RN)': {
+                tusd: 95,
+                tust: 50,
+                energyPrice: 200,
+                connectionCost: 380000,
+                connectionAvailability: 'Alta',
+                connectionTime: 20,
+                taxIncentive: 75,
+                landCost: 'Baixo',
+                renewableEnergy: 80,
+                congestionRisk: 'Baixo',
+                infrastructure: 'Regular',
+                color: '#48bb78'
+            },
+            'Centro-Oeste (GO, MT, MS, DF)': {
+                tusd: 100,
+                tust: 55,
+                energyPrice: 230,
+                connectionCost: 420000,
+                connectionAvailability: 'Média',
+                connectionTime: 22,
+                taxIncentive: 30,
+                landCost: 'Médio',
+                renewableEnergy: 55,
+                congestionRisk: 'Médio',
+                infrastructure: 'Regular',
+                color: '#ed8936'
+            },
+            'Norte (PA, AM)': {
+                tusd: 110,
+                tust: 70,
+                energyPrice: 240,
+                connectionCost: 550000,
+                connectionAvailability: 'Baixa',
+                connectionTime: 30,
+                taxIncentive: 50,
+                landCost: 'Baixo',
+                renewableEnergy: 90,
+                congestionRisk: 'Médio',
+                infrastructure: 'Precária',
+                color: '#9f7aea'
+            }
+        };
+
+        // Componente principal
+        function IndustrialLocationAnalyzer() {
+            // Estados para entrada de dados
+            const [formData, setFormData] = useState({
+                avgLoad: 50,
+                peakLoad: 70,
+                loadFactor: 80,
+                seasonality: false,
+                industryType: 'Data Center',
+                criticality: 'Alta',
+                capexBudget: 50000000,
+                timeline: 24,
+                locationRestriction: ''
+            });
+
+            // Estados para pesos customizáveis
+            const [weights, setWeights] = useState({
+                cost: 40,
+                connectionTime: 20,
+                reliability: 15,
+                taxIncentives: 10,
+                infrastructure: 10,
+                renewable: 5
+            });
+
+            // Estado para resultados
+            const [results, setResults] = useState(null);
+            const [showResults, setShowResults] = useState(false);
+            const [savedScenarios, setSavedScenarios] = useState([]);
+
+            // Função para calcular análise
+            const calculateAnalysis = () => {
+                const { avgLoad, peakLoad, loadFactor } = formData;
+                const hoursPerYear = 8760;
+                const energyConsumption = avgLoad * hoursPerYear * (loadFactor / 100); // MWh/ano
+
+                const regionalResults = Object.entries(REGIONAL_DATA).map(([region, data]) => {
+                    // OPEX anual
+                    const energyCost = energyConsumption * data.energyPrice;
+                    const tusdCost = peakLoad * data.tusd * 12; // R$/MW/mês * 12
+                    const tustCost = peakLoad * data.tust * 12;
+                    const charges = energyCost * 0.15; // 15% de encargos estimados
+                    const totalOpex = energyCost + tusdCost + tustCost + charges;
+
+                    // CAPEX
+                    const connectionCapex = peakLoad * data.connectionCost;
+                    const infrastructureCapex = connectionCapex * 0.5; // 50% adicional para infraestrutura
+                    const totalCapex = connectionCapex + infrastructureCapex;
+
+                    // Custo total primeiro ano
+                    const firstYearCost = totalOpex + totalCapex;
+
+                    // Custo médio 10 anos (sem considerar inflação/desconto)
+                    const avgCostMWh = (totalOpex * 10 + totalCapex) / (energyConsumption * 10);
+
+                    // Payback simples (se houver incentivos)
+                    const incentiveSavings = (totalOpex * data.taxIncentive) / 100;
+                    const payback = incentiveSavings > 0 ? totalCapex / incentiveSavings : 999;
+
+                    // Score qualitativo
+                    const costScore = (1 - (totalOpex / Math.max(...Object.values(REGIONAL_DATA).map(d =>
+                        energyConsumption * d.energyPrice + peakLoad * d.tusd * 12 + peakLoad * d.tust * 12 +
+                        energyConsumption * d.energyPrice * 0.15
+                    )))) * 100;
+
+                    const timeScore = (1 - (data.connectionTime / 36)) * 100;
+
+                    const availabilityScores = { 'Alta': 100, 'Média': 60, 'Baixa': 30 };
+                    const reliabilityScore = availabilityScores[data.connectionAvailability];
+
+                    const infrastructureScores = { 'Boa': 100, 'Regular': 60, 'Precária': 30 };
+                    const infraScore = infrastructureScores[data.infrastructure];
+
+                    const totalScore = (
+                        costScore * (weights.cost / 100) +
+                        timeScore * (weights.connectionTime / 100) +
+                        reliabilityScore * (weights.reliability / 100) +
+                        data.taxIncentive * (weights.taxIncentives / 100) +
+                        infraScore * (weights.infrastructure / 100) +
+                        data.renewableEnergy * (weights.renewable / 100)
+                    );
+
+                    return {
+                        region,
+                        data,
+                        opex: {
+                            energyCost,
+                            tusdCost,
+                            tustCost,
+                            charges,
+                            total: totalOpex
+                        },
+                        capex: {
+                            connection: connectionCapex,
+                            infrastructure: infrastructureCapex,
+                            total: totalCapex
+                        },
+                        firstYearCost,
+                        avgCostMWh,
+                        payback: payback > 100 ? 'N/A' : payback.toFixed(1),
+                        score: totalScore,
+                        costScore,
+                        timeScore,
+                        reliabilityScore,
+                        infraScore
+                    };
+                });
+
+                // Ordenar por score
+                regionalResults.sort((a, b) => b.score - a.score);
+
+                // Adicionar ranking
+                regionalResults.forEach((result, index) => {
+                    result.rank = index + 1;
+                });
+
+                setResults(regionalResults);
+                setShowResults(true);
+            };
+
+            // Função para salvar cenário
+            const saveScenario = () => {
+                const scenarioName = prompt('Nome do cenário:');
+                if (scenarioName) {
+                    setSavedScenarios([...savedScenarios, {
+                        name: scenarioName,
+                        formData: { ...formData },
+                        weights: { ...weights },
+                        results: [...results],
+                        timestamp: new Date().toLocaleString()
+                    }]);
+                    alert('Cenário salvo com sucesso!');
+                }
+            };
+
+            // Função para carregar cenário
+            const loadScenario = (scenario) => {
+                setFormData(scenario.formData);
+                setWeights(scenario.weights);
+                setResults(scenario.results);
+                setShowResults(true);
+            };
+
+            // Função para exportar dados
+            const exportData = () => {
+                if (!results) return;
+
+                const data = results.map(r => ({
+                    Região: r.region,
+                    'Score Total': r.score.toFixed(2),
+                    'OPEX Anual (R$)': r.opex.total.toLocaleString('pt-BR'),
+                    'CAPEX Total (R$)': r.capex.total.toLocaleString('pt-BR'),
+                    'Custo Primeiro Ano (R$)': r.firstYearCost.toLocaleString('pt-BR'),
+                    'Custo Médio (R$/MWh)': r.avgCostMWh.toFixed(2),
+                    'Prazo Conexão (meses)': r.data.connectionTime,
+                    'Incentivo ICMS (%)': r.data.taxIncentive
+                }));
+
+                const csv = [
+                    Object.keys(data[0]).join(','),
+                    ...data.map(row => Object.values(row).join(','))
+                ].join('\n');
+
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'analise_localizacao.csv';
+                a.click();
+            };
+
+            // Função para análise de sensibilidade
+            const sensitivityAnalysis = () => {
+                if (!results) return null;
+
+                const variations = [-20, -10, 0, 10, 20];
+                const topRegion = results[0].region;
+
+                const sensitivityData = variations.map(variation => {
+                    const modifiedLoad = formData.avgLoad * (1 + variation / 100);
+                    const tempFormData = { ...formData, avgLoad: modifiedLoad };
+
+                    // Recalcular para verificar se o ranking muda
+                    return {
+                        variation,
+                        load: modifiedLoad,
+                        label: `${variation > 0 ? '+' : ''}${variation}%`
+                    };
+                });
+
+                return sensitivityData;
+            };
+
+            return (
+                <div className="min-h-screen p-4 md:p-8">
+                    <div className="max-w-7xl mx-auto">
+                        {/* Header */}
+                        <div className="glass-card p-6 mb-6">
+                            <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
+                                ⚡ Análise de Localização para Plantas Industriais
+                            </h1>
+                            <p className="text-gray-600">
+                                Ferramenta interativa para recomendação de melhor localização no Brasil
+                            </p>
+                        </div>
+
+                        {/* Formulário de Entrada */}
+                        <div className="glass-card p-6 mb-6">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                                📊 Dados da Planta Industrial
+                            </h2>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Carga Média (MW)
+                                        <span className="tooltip ml-1">
+                                            ℹ️
+                                            <span className="tooltiptext">Potência média demandada pela planta</span>
+                                        </span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        className="input-field w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        value={formData.avgLoad}
+                                        onChange={(e) => setFormData({...formData, avgLoad: parseFloat(e.target.value)})}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Carga de Pico (MW)
+                                        <span className="tooltip ml-1">
+                                            ℹ️
+                                            <span className="tooltiptext">Potência máxima demandada pela planta</span>
+                                        </span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        className="input-field w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        value={formData.peakLoad}
+                                        onChange={(e) => setFormData({...formData, peakLoad: parseFloat(e.target.value)})}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Fator de Carga (%)
+                                        <span className="tooltip ml-1">
+                                            ℹ️
+                                            <span className="tooltiptext">Percentual de utilização da carga média</span>
+                                        </span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        className="input-field w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        value={formData.loadFactor}
+                                        onChange={(e) => setFormData({...formData, loadFactor: parseFloat(e.target.value)})}
+                                        min="0"
+                                        max="100"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Tipo de Indústria
+                                    </label>
+                                    <select
+                                        className="input-field w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        value={formData.industryType}
+                                        onChange={(e) => setFormData({...formData, industryType: e.target.value})}
+                                    >
+                                        <option>Data Center</option>
+                                        <option>Combustível de Aviação (Metanol)</option>
+                                        <option>Hidrogênio Verde</option>
+                                        <option>Siderúrgica</option>
+                                        <option>Outro</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Criticidade
+                                        <span className="tooltip ml-1">
+                                            ℹ️
+                                            <span className="tooltiptext">Tolerância a interrupções de energia</span>
+                                        </span>
+                                    </label>
+                                    <select
+                                        className="input-field w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        value={formData.criticality}
+                                        onChange={(e) => setFormData({...formData, criticality: e.target.value})}
+                                    >
+                                        <option>Alta</option>
+                                        <option>Média</option>
+                                        <option>Baixa</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Orçamento CAPEX (R$)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        className="input-field w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        value={formData.capexBudget}
+                                        onChange={(e) => setFormData({...formData, capexBudget: parseFloat(e.target.value)})}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Timeline (meses)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        className="input-field w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        value={formData.timeline}
+                                        onChange={(e) => setFormData({...formData, timeline: parseFloat(e.target.value)})}
+                                    />
+                                </div>
+
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Restrições de Localização (opcional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        className="input-field w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        value={formData.locationRestriction}
+                                        onChange={(e) => setFormData({...formData, locationRestriction: e.target.value})}
+                                        placeholder="Ex: Apenas região Sul"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Ajuste de Pesos */}
+                        <div className="glass-card p-6 mb-6">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                                ⚖️ Ajuste de Pesos dos Critérios
+                            </h2>
+                            <p className="text-sm text-gray-600 mb-4">
+                                Total: {Object.values(weights).reduce((a, b) => a + b, 0)}%
+                            </p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {Object.entries(weights).map(([key, value]) => (
+                                    <div key={key}>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            {key === 'cost' && 'Custo'}
+                                            {key === 'connectionTime' && 'Prazo de Conexão'}
+                                            {key === 'reliability' && 'Confiabilidade'}
+                                            {key === 'taxIncentives' && 'Incentivos Fiscais'}
+                                            {key === 'infrastructure' && 'Infraestrutura'}
+                                            {key === 'renewable' && 'Energia Renovável'}
+                                            : {value}%
+                                        </label>
+                                        <input
+                                            type="range"
+                                            className="w-full"
+                                            min="0"
+                                            max="50"
+                                            value={value}
+                                            onChange={(e) => setWeights({...weights, [key]: parseFloat(e.target.value)})}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Botão de Análise */}
+                        <div className="glass-card p-6 mb-6 text-center">
+                            <button
+                                onClick={calculateAnalysis}
+                                className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:from-purple-600 hover:to-indigo-700 transform hover:scale-105 transition-all duration-300 shadow-lg"
+                            >
+                                🔍 Realizar Análise
+                            </button>
+                        </div>
+
+                        {/* Resultados */}
+                        {showResults && results && (
+                            <>
+                                {/* Ações */}
+                                <div className="glass-card p-4 mb-6">
+                                    <div className="flex flex-wrap gap-4 justify-center">
+                                        <button
+                                            onClick={saveScenario}
+                                            className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+                                        >
+                                            💾 Salvar Cenário
+                                        </button>
+                                        <button
+                                            onClick={exportData}
+                                            className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors"
+                                        >
+                                            📥 Exportar CSV
+                                        </button>
+                                        <button
+                                            onClick={() => alert(JSON.stringify(sensitivityAnalysis(), null, 2))}
+                                            className="bg-yellow-500 text-white px-6 py-2 rounded-lg hover:bg-yellow-600 transition-colors"
+                                        >
+                                            📊 Análise de Sensibilidade
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Top 3 Recomendações */}
+                                <div className="glass-card p-6 mb-6">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                                        🏆 Top 3 Regiões Recomendadas
+                                    </h2>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        {results.slice(0, 3).map((result, index) => (
+                                            <div
+                                                key={result.region}
+                                                className="border-2 rounded-lg p-4 relative"
+                                                style={{ borderColor: result.data.color }}
+                                            >
+                                                {index === 0 && (
+                                                    <div className="rank-badge absolute -top-3 -right-3 bg-yellow-400 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-lg shadow-lg">
+                                                        #1
+                                                    </div>
+                                                )}
+                                                <h3 className="font-bold text-lg mb-2" style={{ color: result.data.color }}>
+                                                    {result.region}
+                                                </h3>
+                                                <div className="space-y-2 text-sm">
+                                                    <p><strong>Score:</strong> {result.score.toFixed(2)}/100</p>
+                                                    <p><strong>OPEX Anual:</strong> R$ {(result.opex.total / 1000000).toFixed(2)}M</p>
+                                                    <p><strong>CAPEX:</strong> R$ {(result.capex.total / 1000000).toFixed(2)}M</p>
+                                                    <p><strong>Prazo:</strong> {result.data.connectionTime} meses</p>
+                                                    <p><strong>Incentivo ICMS:</strong> {result.data.taxIncentive}%</p>
+                                                    <p><strong>Renovável:</strong> {result.data.renewableEnergy}%</p>
+                                                </div>
+                                                <div className="mt-4 p-3 bg-gray-50 rounded">
+                                                    <p className="text-xs font-semibold mb-1">Vantagens:</p>
+                                                    <ul className="text-xs space-y-1">
+                                                        {index === 0 && <li>✓ Melhor custo-benefício geral</li>}
+                                                        {result.data.taxIncentive > 50 && <li>✓ Excelentes incentivos fiscais</li>}
+                                                        {result.data.renewableEnergy > 70 && <li>✓ Alta disponibilidade de energia limpa</li>}
+                                                        {result.data.connectionTime < 20 && <li>✓ Conexão rápida à rede</li>}
+                                                        {result.data.infrastructure === 'Boa' && <li>✓ Infraestrutura de qualidade</li>}
+                                                    </ul>
+                                                    {result.data.congestionRisk === 'Alto' && (
+                                                        <p className="text-xs text-red-600 mt-2">⚠️ Atenção: Alto risco de congestionamento</p>
+                                                    )}
+                                                    {result.data.infrastructure === 'Precária' && (
+                                                        <p className="text-xs text-orange-600 mt-2">⚠️ Infraestrutura limitada</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Tabela Comparativa */}
+                                <div className="glass-card p-6 mb-6 overflow-x-auto">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                                        📋 Comparação Detalhada
+                                    </h2>
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="bg-gray-100">
+                                                <th className="p-2 text-left">Rank</th>
+                                                <th className="p-2 text-left">Região</th>
+                                                <th className="p-2 text-right">Score</th>
+                                                <th className="p-2 text-right">OPEX Anual</th>
+                                                <th className="p-2 text-right">CAPEX</th>
+                                                <th className="p-2 text-right">R$/MWh Médio</th>
+                                                <th className="p-2 text-right">Prazo (meses)</th>
+                                                <th className="p-2 text-right">Payback (anos)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {results.map((result) => (
+                                                <tr key={result.region} className={result.rank === 1 ? 'bg-green-50' : ''}>
+                                                    <td className="p-2 font-bold">{result.rank}</td>
+                                                    <td className="p-2">
+                                                        <span style={{ color: result.data.color }}>●</span> {result.region}
+                                                    </td>
+                                                    <td className="p-2 text-right font-semibold">{result.score.toFixed(1)}</td>
+                                                    <td className="p-2 text-right">R$ {(result.opex.total / 1000000).toFixed(2)}M</td>
+                                                    <td className="p-2 text-right">R$ {(result.capex.total / 1000000).toFixed(2)}M</td>
+                                                    <td className="p-2 text-right">R$ {result.avgCostMWh.toFixed(2)}</td>
+                                                    <td className="p-2 text-right">{result.data.connectionTime}</td>
+                                                    <td className="p-2 text-right">{result.payback}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Gráfico de Custos */}
+                                <div className="glass-card p-6 mb-6">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                                        📊 Comparação de Custos Totais Anuais
+                                    </h2>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <BarChart data={results}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="region" angle={-15} textAnchor="end" height={100} />
+                                            <YAxis />
+                                            <RechartsTooltip
+                                                formatter={(value) => `R$ ${(value / 1000000).toFixed(2)}M`}
+                                            />
+                                            <Legend />
+                                            <Bar dataKey="opex.total" name="OPEX Anual" fill="#8884d8" />
+                                            <Bar dataKey="capex.total" name="CAPEX" fill="#82ca9d" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+
+                                {/* Gráfico Radar */}
+                                <div className="glass-card p-6 mb-6">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                                        🎯 Análise Multidimensional - Top 3
+                                    </h2>
+                                    <ResponsiveContainer width="100%" height={400}>
+                                        <RadarChart data={[
+                                            {
+                                                criterion: 'Custo',
+                                                [results[0].region]: results[0].costScore,
+                                                [results[1]?.region]: results[1]?.costScore || 0,
+                                                [results[2]?.region]: results[2]?.costScore || 0
+                                            },
+                                            {
+                                                criterion: 'Prazo',
+                                                [results[0].region]: results[0].timeScore,
+                                                [results[1]?.region]: results[1]?.timeScore || 0,
+                                                [results[2]?.region]: results[2]?.timeScore || 0
+                                            },
+                                            {
+                                                criterion: 'Confiabilidade',
+                                                [results[0].region]: results[0].reliabilityScore,
+                                                [results[1]?.region]: results[1]?.reliabilityScore || 0,
+                                                [results[2]?.region]: results[2]?.reliabilityScore || 0
+                                            },
+                                            {
+                                                criterion: 'Incentivos',
+                                                [results[0].region]: results[0].data.taxIncentive,
+                                                [results[1]?.region]: results[1]?.data.taxIncentive || 0,
+                                                [results[2]?.region]: results[2]?.data.taxIncentive || 0
+                                            },
+                                            {
+                                                criterion: 'Infraestrutura',
+                                                [results[0].region]: results[0].infraScore,
+                                                [results[1]?.region]: results[1]?.infraScore || 0,
+                                                [results[2]?.region]: results[2]?.infraScore || 0
+                                            },
+                                            {
+                                                criterion: 'Renovável',
+                                                [results[0].region]: results[0].data.renewableEnergy,
+                                                [results[1]?.region]: results[1]?.data.renewableEnergy || 0,
+                                                [results[2]?.region]: results[2]?.data.renewableEnergy || 0
+                                            }
+                                        ]}>
+                                            <PolarGrid />
+                                            <PolarAngleAxis dataKey="criterion" />
+                                            <PolarRadiusAxis angle={90} domain={[0, 100]} />
+                                            <Radar name={results[0].region} dataKey={results[0].region} stroke={results[0].data.color} fill={results[0].data.color} fillOpacity={0.6} />
+                                            {results[1] && <Radar name={results[1].region} dataKey={results[1].region} stroke={results[1].data.color} fill={results[1].data.color} fillOpacity={0.6} />}
+                                            {results[2] && <Radar name={results[2].region} dataKey={results[2].region} stroke={results[2].data.color} fill={results[2].data.color} fillOpacity={0.6} />}
+                                            <Legend />
+                                        </RadarChart>
+                                    </ResponsiveContainer>
+                                </div>
+
+                                {/* Gráfico de Dispersão Custo vs Prazo */}
+                                <div className="glass-card p-6 mb-6">
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                                        ⏱️ Custo vs Prazo de Conexão
+                                    </h2>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <ScatterChart>
+                                            <CartesianGrid />
+                                            <XAxis type="number" dataKey="data.connectionTime" name="Prazo" unit=" meses" />
+                                            <YAxis type="number" dataKey="opex.total" name="OPEX" unit=" R$" />
+                                            <RechartsTooltip cursor={{ strokeDasharray: '3 3' }} />
+                                            <Scatter name="Regiões" data={results} fill="#8884d8">
+                                                {results.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.data.color} />
+                                                ))}
+                                            </Scatter>
+                                        </ScatterChart>
+                                    </ResponsiveContainer>
+                                </div>
+
+                                {/* Cenários Salvos */}
+                                {savedScenarios.length > 0 && (
+                                    <div className="glass-card p-6 mb-6">
+                                        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                                            📁 Cenários Salvos
+                                        </h2>
+                                        <div className="space-y-2">
+                                            {savedScenarios.map((scenario, index) => (
+                                                <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                                                    <div>
+                                                        <span className="font-semibold">{scenario.name}</span>
+                                                        <span className="text-sm text-gray-500 ml-2">{scenario.timestamp}</span>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => loadScenario(scenario)}
+                                                        className="bg-blue-500 text-white px-4 py-1 rounded hover:bg-blue-600 transition-colors"
+                                                    >
+                                                        Carregar
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // Renderizar aplicação
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<IndustrialLocationAnalyzer />);
+    </script>
+</body>
+</html>
