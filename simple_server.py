@@ -222,9 +222,11 @@ class ThemeNavigatorHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         """Handle GET requests"""
         parsed_path = urllib.parse.urlparse(self.path)
-        
+
         if parsed_path.path == '/':
             self.serve_index()
+        elif parsed_path.path == '/industrial-location':
+            self.serve_industrial_location()
         elif parsed_path.path == '/api/themes':
             self.serve_themes()
         elif parsed_path.path.startswith('/api/theme/'):
@@ -251,13 +253,26 @@ class ThemeNavigatorHandler(http.server.SimpleHTTPRequestHandler):
                 # Fallback to original version
                 with open('templates/index.html', 'r', encoding='utf-8') as f:
                     content = f.read()
-            
+
             self.send_response(200)
             self.send_header('Content-type', 'text/html; charset=utf-8')
             self.end_headers()
             self.wfile.write(content.encode('utf-8'))
         except FileNotFoundError:
             self.send_error(404, "Template not found")
+
+    def serve_industrial_location(self):
+        """Serve the industrial location analysis page"""
+        try:
+            with open('templates/industrial_location.html', 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(content.encode('utf-8'))
+        except FileNotFoundError:
+            self.send_error(404, "Industrial location template not found")
     
     def serve_themes(self):
         """Serve themes API"""

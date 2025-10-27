@@ -1,6 +1,14 @@
-# Navegador de Regulamentação do Setor Elétrico
+# Ferramentas para o Setor Elétrico Brasileiro
 
+Conjunto de ferramentas interativas para análise e consultoria no setor elétrico brasileiro.
+
+## Ferramentas Disponíveis
+
+### 1. Navegador de Regulamentação do Setor Elétrico
 Uma ferramenta interativa para exploração de temas em regulamentações do setor elétrico brasileiro através de nuvens de temas navegáveis.
+
+### 2. Análise de Localização para Plantas Industriais (NOVO!)
+Ferramenta profissional para consultores de energia analisarem e recomendarem a melhor localização no Brasil para instalação de plantas industriais eletrointensivas. Inclui análise comparativa de custos (OPEX/CAPEX), prazos, incentivos fiscais e scores ponderáveis.
 
 ## Características
 
@@ -55,21 +63,37 @@ Acesse http://localhost:5000 no seu navegador.
 
 ## Como Usar
 
+### Navegador de Regulamentação
 1. **Visualização Inicial**: A página inicial mostra os temas principais encontrados nos dados de exemplo
 2. **Navegação**: Clique nas bolhas para explorar subtemas
 3. **Breadcrumb**: Use a navegação superior para voltar aos níveis anteriores
 4. **Upload**: Use o botão "Carregar Documentos" para analisar seus próprios textos
 5. **Detalhes**: Visualize palavras-chave e documentos relacionados a cada tema
 
+### Análise de Localização Industrial
+1. **Acesso**: Na página inicial, clique em "Análise de Localização Industrial" ou acesse `http://localhost:8000/industrial-location`
+2. **Entrada de Dados**: Preencha os campos com informações da planta industrial (carga, tipo, orçamento, etc.)
+3. **Ajuste de Pesos**: Personalize a importância de cada critério (custo, prazo, incentivos, etc.)
+4. **Análise**: Clique em "Realizar Análise" para obter recomendações
+5. **Resultados**: Visualize Top 3 regiões, tabelas comparativas e gráficos interativos
+6. **Exportação**: Salve cenários ou exporte dados em CSV para Excel
+
+Para mais detalhes, consulte o [Guia Completo de Uso da Ferramenta de Localização](INDUSTRIAL_LOCATION_GUIDE.md).
+
 ## Estrutura do Projeto
 
 ```
-├── simple_server.py          # Servidor HTTP simples (apenas bibliotecas nativas)
-├── app.py                    # Servidor Flask avançado
+├── simple_server.py                  # Servidor HTTP simples (apenas bibliotecas nativas)
+├── app.py                            # Servidor Flask avançado
 ├── templates/
-│   └── index.html            # Interface web principal
-├── requirements.txt          # Dependências Python
-└── README.md                # Este arquivo
+│   ├── index.html                    # Interface web principal - Navegador de Regulamentação
+│   ├── index_local.html              # Versão local do navegador
+│   └── industrial_location.html      # Ferramenta de Análise de Localização Industrial
+├── requirements.txt                  # Dependências Python
+├── README.md                         # Este arquivo
+├── INDUSTRIAL_LOCATION_GUIDE.md      # Guia completo da ferramenta de localização
+├── USAGE.md                          # Guia de uso detalhado
+└── VECTOR_STORE.md                   # Documentação sobre Vector Store
 ```
 
 ## Funcionalidades
