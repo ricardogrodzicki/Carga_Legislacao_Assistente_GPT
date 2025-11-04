@@ -178,3 +178,36 @@ A aplicação reconhece automaticamente os seguintes tipos de regulamentação:
 - Verifique a conexão com o servidor
 - Confirme que há texto na área de upload
 - Tente documentos mais longos e específicos
+
+## Perguntas Frequentes (FAQ)
+
+### O que acontece depois de clicar em "Processar Documentos"?
+
+Quando você clica em "⚙️ Processar Documentos":
+
+1. **Processamento Imediato**: O sistema começa a analisar seus documentos instantaneamente
+2. **Indicador Visual**: Um indicador de carregamento aparece mostrando que o processamento está em andamento
+3. **Análise Automática**: A aplicação identifica temas e palavras-chave automaticamente
+4. **Atualização da Interface**: Após alguns segundos, os novos temas aparecem na tela principal
+5. **Confirmação**: Uma mensagem de sucesso é exibida quando o processamento está completo
+
+**Não é necessário esperar ou fazer nada além de clicar no botão!** O sistema faz tudo automaticamente.
+
+### Quanto tempo demora o processamento?
+
+- **Documentos pequenos** (1-5 documentos): 1-2 segundos
+- **Documentos médios** (6-20 documentos): 2-5 segundos
+- **Documentos grandes** (mais de 20): 5-10 segundos
+
+Durante esse tempo, você verá um indicador de progresso com a mensagem "⚙️ Processando seus documentos...".
+
+### Posso usar a aplicação enquanto processa?
+
+Sim! O modal de upload fica bloqueado durante o processamento, mas assim que terminar:
+- O modal fecha automaticamente
+- Os novos temas aparecem na tela principal
+- Você pode começar a explorar imediatamente
+
+### Os temas anteriores são perdidos ao carregar novos documentos?
+
+Sim, ao processar novos documentos, a visualização é substituída pelos novos temas. Se você quiser manter os temas anteriores, anote-os ou faça uma captura de tela antes de carregar novos documentos.
